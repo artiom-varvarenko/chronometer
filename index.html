@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Психологічний Хронометраж Тест</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      text-align: center;
+    }
+    #instructions {
+      text-align: left;
+      background-color: #f5f5f5;
+      padding: 15px;
+      margin-bottom: 20px;
+      border-radius: 5px;
+    }
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      margin: 10px;
+      cursor: pointer;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 5px;
+    }
+    button:disabled {
+      background-color: #cccccc;
+      cursor: not-allowed;
+    }
+    .hidden {
+      display: none;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: center;
+    }
+    th {
+      background-color: #f2f2f2;
+    }
+    .listening {
+      background-color: #ff9999;
+      animation: pulse 1s infinite;
+    }
+    .user-timing {
+      background-color: #99ccff;
+    }
+    @keyframes pulse {
+      0% {
+        background-color: #ff9999;
+      }
+      50% {
+        background-color: #ff6666;
+      }
+      100% {
+        background-color: #ff9999;
+      }
+    }
+    #progress-container {
+      margin: 20px 0;
+    }
+    #progress-text {
+      margin-bottom: 5px;
+    }
+    #progress-bar {
+      width: 100%;
+      background-color: #ddd;
+      height: 20px;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    #progress-fill {
+      height: 100%;
+      background-color: #4CAF50;
+      width: 0%;
+      transition: width 0.5s;
+    }
+    #copy-container {
+      margin-bottom: 20px;
+    }
+    #copy-button {
+      background-color: #2196F3;
+    }
+    #copy-success {
+      color: green;
+      margin-top: 10px;
+      display: none;
+    }
+    #cycles-table {
+      margin-top: 30px;
+      width: 300px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+  </style>
+</head>
+<body>
+<h1>Психологічний Хронометраж Тест</h1>
+
+<div id="instructions">
+  <h2>Інструкції:</h2>
+  <p>Цей тест вимірює вашу здатність сприймати та відтворювати часові інтервали.</p>
+  <ol>
+    <li>Ви почуєте 20 різних часових інтервалів (по 5 для кожного з 2, 3, 4 та 5 секунд).</li>
+    <li>Для кожного інтервалу:
+      <ul>
+        <li>Спочатку натисніть "Прослухати інтервал" або натисніть <strong>Пробіл</strong>, щоб почути сигнал, потім зачекайте протягом інтервалу, а потім почуєте ще один сигнал.</li>
+        <li>Потім ви спробуєте відтворити такий самий інтервал, натиснувши кнопку або <strong>Пробіл</strong> один раз, зачекавши, скільки, на вашу думку, триває той самий інтервал, а потім знову натиснувши.</li>
+      </ul>
+    </li>
+    <li>Після завершення всіх 20 інтервалів ви побачите свої результати в таблиці.</li>
+  </ol>
+</div>
+
+<div id="test-container">
+  <div id="start-screen">
+    <button id="start-button">Почати тест</button>
+  </div>
+
+  <div id="interval-screen" class="hidden">
+    <h2 id="status-text">Готові до прослуховування</h2>
+    <div id="progress-container">
+      <div id="progress-text">Прогрес: 0/20</div>
+      <div id="progress-bar">
+        <div id="progress-fill"></div>
+      </div>
+    </div>
+    <button id="listen-button">Прослухати інтервал</button>
+    <button id="user-button" disabled>Натисніть, щоб почати/зупинити відлік</button>
+  </div>
+
+  <div id="results-screen" class="hidden">
+    <h2>Ваші результати</h2>
+
+    <!-- Moved copy container above tables -->
+    <div id="copy-container">
+      <button id="copy-button">Копіювати результати</button>
+      <div id="copy-success">Результати скопійовано в буфер обміну!</div>
+    </div>
+
+    <table id="results-table">
+      <thead>
+      <tr id="header-row">
+        <th>Інтервал</th>
+        <th>Спр 1</th>
+        <th>Спр 2</th>
+        <th>Спр 3</th>
+        <th>Спр 4</th>
+        <th>Спр 5</th>
+        <th>Сума</th>
+        <th>Тау (τ)</th>
+      </tr>
+      </thead>
+      <tbody id="results-body">
+      <!-- Results will be inserted here -->
+      </tbody>
+    </table>
+
+    <h3>Цикли (вік)</h3>
+    <table id="cycles-table">
+      <thead>
+      <tr>
+        <th>Цикл</th>
+        <th>Значення</th>
+      </tr>
+      </thead>
+      <tbody id="cycles-body">
+      <!-- Cycle values will be inserted here -->
+      </tbody>
+    </table>
+
+    <button id="restart-button">Перезапустити тест</button>
+  </div>
+</div>
+
+<script>
+  // Define constants and variables
+  const INTERVALS = [2000, 3000, 4000, 5000]; // Time intervals in milliseconds
+  const TRIALS_PER_INTERVAL = 5;
+  const TOTAL_TRIALS = INTERVALS.length * TRIALS_PER_INTERVAL;
+
+  let audioContext;
+  let intervals = [];
+  let currentTrialIndex = 0;
+  let userStartTime = 0;
+  let results = {};
+  let isListening = false;
+  let isUserTiming = false;
+  let activeButton = null; // Track which button should respond to spacebar
+
+  // Initialize results object
+  INTERVALS.forEach((interval, i) => {
+    results[interval] = new Array(TRIALS_PER_INTERVAL).fill(null);
+  });
+
+  // DOM elements
+  const startButton = document.getElementById('start-button');
+  const userButton = document.getElementById('user-button');
+  const listenButton = document.getElementById('listen-button');
+  const startScreen = document.getElementById('start-screen');
+  const intervalScreen = document.getElementById('interval-screen');
+  const resultsScreen = document.getElementById('results-screen');
+  const statusText = document.getElementById('status-text');
+  const progressText = document.getElementById('progress-text');
+  const progressFill = document.getElementById('progress-fill');
+  const restartButton = document.getElementById('restart-button');
+  const copyButton = document.getElementById('copy-button');
+  const copySuccess = document.getElementById('copy-success');
+
+  // Generate a random sequence of intervals
+  function generateIntervals() {
+    let allIntervals = [];
+    INTERVALS.forEach(interval => {
+      for (let i = 0; i < TRIALS_PER_INTERVAL; i++) {
+        allIntervals.push(interval);
+      }
+    });
+
+    // Shuffle the intervals
+    for (let i = allIntervals.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [allIntervals[i], allIntervals[j]] = [allIntervals[j], allIntervals[i]];
+    }
+
+    return allIntervals;
+  }
+
+  // Play a beep sound
+  function playBeep() {
+    if (!audioContext) {
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    }
+
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+
+    oscillator.type = 'sine';
+    oscillator.frequency.value = 800;
+    gainNode.gain.value = 0.5;
+
+    oscillator.start();
+    setTimeout(() => {
+      oscillator.stop();
+    }, 200);
+  }
+
+  // Start the test
+  function startTest() {
+    intervals = generateIntervals();
+    currentTrialIndex = 0;
+
+    // Reset results
+    INTERVALS.forEach((interval, i) => {
+      results[interval] = new Array(TRIALS_PER_INTERVAL).fill(null);
+    });
+
+    startScreen.classList.add('hidden');
+    intervalScreen.classList.remove('hidden');
+
+    // Update progress
+    progressText.textContent = `Прогрес: ${currentTrialIndex + 1}/${TOTAL_TRIALS}`;
+    progressFill.style.width = `${((currentTrialIndex + 1) / TOTAL_TRIALS) * 100}%`;
+
+    // Wait for user to click listen button instead of automatically playing
+    statusText.textContent = 'Натисніть "Прослухати інтервал" або Пробіл, коли будете готові';
+    activeButton = 'listen'; // Enable spacebar for listen button
+  }
+
+  // Play the interval when user clicks listen button
+  function playInterval() {
+    if (currentTrialIndex >= TOTAL_TRIALS) {
+      showResults();
+      return;
+    }
+
+    const currentInterval = intervals[currentTrialIndex];
+    statusText.textContent = 'Прослухайте інтервал';
+    statusText.classList.add('listening');
+    userButton.disabled = true;
+    listenButton.disabled = true;
+    isListening = true;
+    activeButton = null; // Disable spacebar during listening
+
+    // Update progress
+    progressText.textContent = `Прогрес: ${currentTrialIndex + 1}/${TOTAL_TRIALS}`;
+    progressFill.style.width = `${((currentTrialIndex + 1) / TOTAL_TRIALS) * 100}%`;
+
+    // Play first beep
+    playBeep();
+
+    // Play second beep after the interval
+    setTimeout(() => {
+      playBeep();
+      isListening = false;
+
+      // Prepare for user's timing
+      setTimeout(() => {
+        statusText.textContent = 'Тепер ви спробуйте - Натисніть кнопку або Пробіл для ПОЧАТКУ';
+        userButton.textContent = 'Натисніть, щоб почати відлік';
+        statusText.classList.remove('listening');
+        userButton.disabled = false;
+        activeButton = 'user'; // Enable spacebar for user timing
+      }, 1000);
+    }, currentInterval);
+  }
+
+  // Prepare for the next interval
+  function prepareNextInterval() {
+    if (currentTrialIndex >= TOTAL_TRIALS) {
+      showResults();
+      return;
+    }
+
+    statusText.textContent = 'Натисніть "Прослухати інтервал" або Пробіл, коли будете готові';
+    statusText.classList.remove('listening');
+    listenButton.disabled = false;
+    userButton.disabled = true;
+    activeButton = 'listen'; // Enable spacebar for listen button
+
+    // Update progress
+    progressText.textContent = `Прогрес: ${currentTrialIndex + 1}/${TOTAL_TRIALS}`;
+    progressFill.style.width = `${((currentTrialIndex + 1) / TOTAL_TRIALS) * 100}%`;
+  }
+
+  // Handle user's button press for timing
+  function handleUserButtonPress() {
+    if (!isUserTiming) {
+      // First press - start timing
+      userStartTime = Date.now();
+      isUserTiming = true;
+      statusText.textContent = 'Відлік... Натисніть кнопку або Пробіл для ЗУПИНКИ';
+      userButton.textContent = 'Натисніть, щоб зупинити відлік';
+      statusText.classList.add('user-timing');
+      playBeep();
+    } else {
+      // Second press - stop timing
+      const userEndTime = Date.now();
+      const userDuration = userEndTime - userStartTime;
+      const currentInterval = intervals[currentTrialIndex];
+
+      // Record result
+      const intervalIndex = INTERVALS.indexOf(currentInterval);
+      const trialIndex = results[currentInterval].findIndex(val => val === null);
+      results[currentInterval][trialIndex] = userDuration / 1000; // Convert to seconds
+
+      // Reset for next trial
+      isUserTiming = false;
+      currentTrialIndex++;
+      statusText.classList.remove('user-timing');
+      userButton.disabled = true;
+      userButton.textContent = 'Натисніть, щоб почати/зупинити відлік';
+
+      playBeep();
+      setTimeout(() => {
+        prepareNextInterval();
+      }, 1000);
+    }
+  }
+
+  // Calculate standard deviation
+  function calculateStandardDeviation(values) {
+    if (values.length === 0) return 0;
+
+    const mean = values.reduce((sum, val) => sum + val, 0) / values.length;
+    const squaredDiffs = values.map(val => Math.pow(val - mean, 2));
+    const variance = squaredDiffs.reduce((sum, val) => sum + val, 0) / values.length;
+    return Math.sqrt(variance);
+  }
+
+  // Calculate tau (ratio of perceived time to actual time)
+  function calculateTau(userValues, actualIntervals) {
+    if (userValues.length === 0 || actualIntervals.length === 0) return 0;
+
+    const userSum = userValues.reduce((sum, val) => sum + val, 0);
+    const actualSum = actualIntervals.reduce((sum, val) => sum + val, 0);
+
+    return userSum / actualSum;
+  }
+
+  // Calculate coefficient of variation (sigma)
+  function calculateSigma(values) {
+    if (values.length === 0) return 0;
+
+    const mean = values.reduce((sum, val) => sum + val, 0) / values.length;
+    const stdDev = calculateStandardDeviation(values);
+
+    return stdDev / mean;
+  }
+
+  // Calculate cycle values based on tau
+  function calculateCycleValue(tau, cycleMultiplier) {
+    return tau * 8.5 * cycleMultiplier;
+  }
+
+  // Generate cycle multipliers with decimal notation
+  function generateCycleMultipliers() {
+    const multipliers = [];
+
+    // Add values from 0.25 to 12 with 0.25 increments
+    for (let i = 0.25; i <= 12; i += 0.25) {
+      multipliers.push({
+        name: `C${i.toFixed(2).replace(/\.00$/, '').replace(/\.([0-9])0$/, '.$1')}`,
+        value: i
+      });
+    }
+
+    return multipliers;
+  }
+
+  // Convert decimal years to years, months, and days
+  function convertToYearsMonthsDays(decimalYears) {
+    // Extract whole years
+    const years = Math.floor(decimalYears);
+
+    // Convert the decimal part to months
+    const decimalPart = decimalYears - years;
+    const totalMonths = decimalPart * 12;
+    const months = Math.floor(totalMonths);
+
+    // Convert the remaining decimal part to days (assuming 30 days per month for simplicity)
+    const remainingMonthDecimal = totalMonths - months;
+    const days = Math.round(remainingMonthDecimal * 30);
+
+    // Format the result with abbreviated units
+    let result = '';
+
+    if (years > 0) {
+      result += years + 'р';
+    }
+
+    if (months > 0) {
+      if (result.length > 0) result += ', ';
+      result += months + 'м';
+    }
+
+    if (days > 0 || (years === 0 && months === 0)) {
+      if (result.length > 0) result += ', ';
+      result += days + 'д';
+    }
+
+    return result;
+  }
+
+  // Show the results table
+  function showResults() {
+    intervalScreen.classList.add('hidden');
+    resultsScreen.classList.remove('hidden');
+
+    const resultsBody = document.getElementById('results-body');
+    resultsBody.innerHTML = '';
+
+    // Prepare the data structure for the transposed table
+    let intervalData = {};
+    let tauValues = {};
+
+    // Initialize data structures
+    INTERVALS.forEach(interval => {
+      intervalData[interval] = {
+        values: results[interval],
+        sum: 0,
+        tau: 0
+      };
+
+      // Calculate sum for this interval
+      const values = results[interval].filter(val => val !== null);
+      const sum = values.length > 0 ? values.reduce((a, b) => a + b, 0) : 0;
+      intervalData[interval].sum = sum;
+
+      // Calculate tau for this interval type
+      const actualInterval = interval / 1000; // Convert ms to seconds
+      const actualTotal = actualInterval * TRIALS_PER_INTERVAL; // Total actual time for this interval type
+      const tau = sum / actualTotal;
+      intervalData[interval].tau = tau;
+      tauValues[interval] = tau;
+    });
+
+    // Create rows for each interval type
+    const intervalNames = ["2 секунди", "3 секунди", "4 секунди", "5 секунд"];
+
+    INTERVALS.forEach((interval, intervalIndex) => {
+      const row = document.createElement('tr');
+
+      // Add interval name cell
+      const intervalCell = document.createElement('td');
+      intervalCell.textContent = intervalNames[intervalIndex];
+      row.appendChild(intervalCell);
+
+      // Add cells for each trial
+      for (let trialIndex = 0; trialIndex < TRIALS_PER_INTERVAL; trialIndex++) {
+        const cell = document.createElement('td');
+        const value = results[interval][trialIndex];
+        cell.textContent = value !== null ? value.toFixed(3) : '-';
+        row.appendChild(cell);
+      }
+
+      // Add sum cell
+      const sumCell = document.createElement('td');
+      sumCell.textContent = intervalData[interval].sum.toFixed(3);
+      row.appendChild(sumCell);
+
+      // Add tau cell
+      const tauCell = document.createElement('td');
+      tauCell.textContent = intervalData[interval].tau.toFixed(3);
+      row.appendChild(tauCell);
+
+      resultsBody.appendChild(row);
+    });
+
+    // Calculate overall square deviation based on 4 tau values
+    function calculateSquareDeviation(tauValues) {
+      const tauArray = Object.values(tauValues);
+      if (tauArray.length === 0) return 0;
+
+      const mean = tauArray.reduce((sum, val) => sum + val, 0) / tauArray.length;
+      const squaredDiffs = tauArray.map(val => Math.pow(val - mean, 2));
+      const variance = squaredDiffs.reduce((sum, val) => sum + val, 0) / (tauArray.length - 1); // Unbiased estimate
+      return Math.sqrt(variance);
+    }
+
+    // Add summary row
+    const summaryRow = document.createElement('tr');
+
+    // Add label for summary row
+    const summaryLabel = document.createElement('td');
+    summaryLabel.textContent = 'Узагальнено';
+    summaryRow.appendChild(summaryLabel);
+
+    // Add empty cells for individual trials
+    for (let i = 0; i < TRIALS_PER_INTERVAL; i++) {
+      const emptyCell = document.createElement('td');
+      emptyCell.textContent = '-';
+      summaryRow.appendChild(emptyCell);
+    }
+
+    // Add overall sum cell
+    const overallSumCell = document.createElement('td');
+    const allSums = Object.values(intervalData).map(data => data.sum);
+    const overallSum = allSums.reduce((sum, val) => sum + val, 0);
+    overallSumCell.textContent = overallSum.toFixed(3);
+    summaryRow.appendChild(overallSumCell);
+
+    // Add overall tau cell with bold style - calculated as arithmetic mean of all tau values
+    const overallTauCell = document.createElement('td');
+    const allTauValues = Object.values(tauValues);
+    const overallTau = allTauValues.reduce((sum, val) => sum + val, 0) / allTauValues.length;
+    overallTauCell.innerHTML = `<strong>${overallTau.toFixed(3)}</strong>`;
+    summaryRow.appendChild(overallTauCell);
+
+    resultsBody.appendChild(summaryRow);
+
+    // Add square deviation row
+    const deviationRow = document.createElement('tr');
+
+    // Add label for deviation row
+    const deviationLabel = document.createElement('td');
+    deviationLabel.textContent = 'Квадр. відх.';
+    deviationRow.appendChild(deviationLabel);
+
+    // Add empty cells for individual trials and sum
+    for (let i = 0; i < TRIALS_PER_INTERVAL + 1; i++) {
+      const emptyCell = document.createElement('td');
+      emptyCell.textContent = '-';
+      deviationRow.appendChild(emptyCell);
+    }
+
+    // Add square deviation cell
+    const squareDeviationCell = document.createElement('td');
+    const squareDeviation = calculateSquareDeviation(tauValues);
+    squareDeviationCell.textContent = squareDeviation.toFixed(3);
+    deviationRow.appendChild(squareDeviationCell);
+
+    resultsBody.appendChild(deviationRow);
+
+    // Calculate and display cycle values
+    const cyclesBody = document.getElementById('cycles-body');
+
+    // Clear existing content
+    cyclesBody.innerHTML = '';
+
+    // Get cycle multipliers with decimal notation
+    const cycleMultipliers = generateCycleMultipliers();
+
+    // Create rows for each cycle
+    cycleMultipliers.forEach(cycle => {
+      // Create row
+      const row = document.createElement('tr');
+
+      // Create name cell
+      const nameCell = document.createElement('td');
+      nameCell.textContent = cycle.name;
+      row.appendChild(nameCell);
+
+      // Calculate cycle value
+      const cycleValue = calculateCycleValue(overallTau, cycle.value);
+
+      // Format in decimal and years, months, days
+      const formattedDecimal = cycleValue.toFixed(3);
+      const formattedYMD = convertToYearsMonthsDays(cycleValue);
+
+      // Create value cell
+      const valueCell = document.createElement('td');
+      valueCell.innerHTML = `${formattedDecimal}<br><span style="font-size: 0.9em;">(${formattedYMD})</span>`;
+      row.appendChild(valueCell);
+
+      // Add row to table body
+      cyclesBody.appendChild(row);
+    });
+  }
+
+  // Copy results to clipboard - FIXED FUNCTION
+  function copyResultsToClipboard() {
+    // Get tables
+    const resultsTable = document.getElementById('results-table');
+    const cyclesTable = document.getElementById('cycles-table');
+    let text = '';
+
+    // Extract main results table
+    const mainRows = resultsTable.querySelectorAll('tr');
+
+    // Extract table headers
+    const headers = mainRows[0].querySelectorAll('th');
+    let headerRow = [];
+    headers.forEach(header => {
+      headerRow.push(header.textContent);
+    });
+    text += headerRow.join('\t') + '\n';
+
+    // Extract table data
+    for (let i = 1; i < mainRows.length; i++) {
+      const cells = mainRows[i].querySelectorAll('td');
+      let dataRow = [];
+      cells.forEach(cell => {
+        // Get just the text content without any HTML formatting
+        dataRow.push(cell.textContent);
+      });
+      text += dataRow.join('\t') + '\n';
+    }
+
+    // Add a separator
+    text += '\n';
+
+    // Extract cycles table - with vertical format
+    const cycleRows = cyclesTable.querySelectorAll('tbody tr');
+
+    // Add header
+    text += 'Цикли\n';
+
+    // Add each cycle row
+    cycleRows.forEach(row => {
+      const cells = row.querySelectorAll('td');
+
+      if (cells.length === 2) {
+        const cycleName = cells[0].textContent;
+        const valueCell = cells[1];
+
+        // Extract the decimal value (first part of the text)
+        const fullText = valueCell.textContent;
+        const decimalValue = fullText.split('(')[0].trim();
+
+        // Extract the years, months, days text (inside parentheses)
+        const spanElement = valueCell.querySelector('span');
+        const ymdText = spanElement ? spanElement.textContent.replace(/[()]/g, '') : '';
+
+        // Format as requested: "C1  7 років, 6 місяців, 9 днів (7.526)"
+        text += `${cycleName}  ${ymdText} (${decimalValue})\n`;
+      }
+    });
+
+    // Copy to clipboard
+    navigator.clipboard.writeText(text)
+            .then(() => {
+              // Show success message
+              copySuccess.style.display = 'block';
+              setTimeout(() => {
+                copySuccess.style.display = 'none';
+              }, 3000);
+            })
+            .catch(err => {
+              console.error('Не вдалося скопіювати результати: ', err);
+              alert('Не вдалося скопіювати результати. Будь ласка, спробуйте ще раз.');
+            });
+  }
+
+  // Event listeners
+  startButton.addEventListener('click', startTest);
+  listenButton.addEventListener('click', playInterval);
+  userButton.addEventListener('click', handleUserButtonPress);
+  copyButton.addEventListener('click', copyResultsToClipboard);
+  restartButton.addEventListener('click', () => {
+    resultsScreen.classList.add('hidden');
+    startScreen.classList.remove('hidden');
+    activeButton = 'start'; // Set active button to start
+
+    // Reset the test for a new run
+    intervals = [];
+    currentTrialIndex = 0;
+    isListening = false;
+    isUserTiming = false;
+
+    // Reset results
+    INTERVALS.forEach((interval, i) => {
+      results[interval] = new Array(TRIALS_PER_INTERVAL).fill(null);
+    });
+  });
+
+  // Add event listener for spacebar key
+  document.addEventListener('keydown', function(event) {
+    // Check if spacebar was pressed
+    if (event.code === 'Space' || event.keyCode === 32) {
+      event.preventDefault(); // Prevent page scrolling
+
+      // Determine which function to call based on active button
+      if (activeButton === 'listen' && !listenButton.disabled) {
+        playInterval();
+      } else if (activeButton === 'user' && !userButton.disabled) {
+        handleUserButtonPress();
+      } else if (activeButton === 'start' && !startButton.disabled) {
+        startTest();
+      } else if (activeButton === 'restart' && !restartButton.disabled) {
+        resultsScreen.classList.add('hidden');
+        startScreen.classList.remove('hidden');
+        activeButton = 'start';
+      }
+    }
+  });
+
+  // Set initial active button
+  activeButton = 'start';
+</script>
+</body>
+</html>
